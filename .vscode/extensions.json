@@ -1,0 +1,7 @@
+{
+    "recommendations": [
+        "rust-lang.rust-analyzer",
+        "lanza.lldb-vscode",
+        "1yib.rust-bundle"
+    ]
+}

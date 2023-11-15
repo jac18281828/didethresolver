@@ -1,0 +1,23 @@
+button {
+    width:85px;
+    height:25px;
+    font-size: 14px;
+    background-color: #96f5fc;
+    font-family: Verdana, Geneva, Tahoma, sans-serif
+}
+
+p {
+    background-color: rgb(50, 174, 205);
+    color: beige;
+    border: 1px solid pink;
+    border-radius: 50px;
+    text-align: center;
+    font-style: italic;
+    font-size: 18px;
+    padding: 5px;
+}
+
+.formInput {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
