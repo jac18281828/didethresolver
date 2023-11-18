@@ -1,5 +1,6 @@
 use log::info;
 use wasm_bindgen::JsCast;
+use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 use yew::{Html, Properties};
 
@@ -111,7 +112,7 @@ fn did_document(did_doc: &DidDocumentProps) -> Html {
 #[function_component(App)]
 fn app() -> Html {
     let did_prop = use_state(|| DidDocumentProps {
-        public_key: "0x1234567890".to_string(),
+        public_key: "".to_string(),
         private_key: "".to_string(),
         rpc_url: "https://eth-sepolia.g.alchemy.com/v2".to_string(),
         did: "did:eth:0x1234567890".to_string(),
@@ -166,12 +167,41 @@ fn app() -> Html {
     let on_search = {
         let did_prop = did_prop.clone();
         Callback::from(move |_| {
-            did_prop.set(DidDocumentProps {
-                did: format!("did:eth:{}", did_prop.public_key.clone()),
-                owner: did_prop.public_key.clone(),
-                ..(*did_prop).clone()
-            });
+            let did_prop = did_prop.clone();
             info!("searching");
+            spawn_local(async move {
+                let registry_result =
+                    didethresolver::DidEthRegistry::new(&did_prop.rpc_url, &did_prop.private_key.clone())
+                        .await;
+                if let Ok(registry) = registry_result {
+                    let pk_result = registry.public_key().await;
+                    if let Ok(public_key) = pk_result {
+                        info!("public key: {:?}", public_key);
+                        did_prop.set(DidDocumentProps {
+                            public_key: public_key.clone(),
+                            ..(*did_prop).clone()
+                        });
+                    } else {
+                        info!("public key error.");
+                        return;
+                    }
+
+                    let owner_result = registry.owner(&did_prop.public_key.clone()).await;
+                    if let Ok(owner) = owner_result {
+                        info!("owner: {:?}", owner);
+                        did_prop.set(DidDocumentProps {
+                            owner: owner.clone(),
+                            ..(*did_prop).clone()
+                        });
+                    } else {
+                        info!("owner error.");
+                        return;
+                    }
+                } else {
+                    info!("registry error.");
+                    return;
+                }
+            });
         })
     };
 

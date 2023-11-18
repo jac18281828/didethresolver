@@ -20,7 +20,7 @@ pub const DATA_LIFETIME: u64 = 86400 * 365; // 1 year
 // Generate rust bindings for the DIDRegistry contract
 abigen!(
     DIDRegistry,
-    "./abi/DIDRegistry.json",
+    "./abi/EIP1056Registry.json",
     derives(serde::Deserialize, serde::Serialize)
 );
 
@@ -71,10 +71,12 @@ impl DidEthRegistry {
         }
     }
 
-    pub async fn owner(&self, id: String) -> Result<String, JsError> {
-        let owner = self.contract.identityOwner(id).call().await?;
-        tracing::info!("Owner: {owner}");
-        Ok(format!("{owner}"))
+    pub async fn owner(&self, id: &str) -> Result<String, JsError> {
+        let identity = H160::from_str(id).unwrap();
+        let owner = self.contract.identity_owner(identity).call().await?;
+        let owner_str = H160::to_string(&owner);
+        tracing::info!("Owner: {owner_str}");
+        Ok(format!("{owner_str}"))
     }
 
     pub async fn set_attribute(&self, attribute: String) -> Result<String, JsError> {
@@ -87,5 +89,12 @@ impl DidEthRegistry {
         let receipt = tx.send().await?.await?;
         tracing::info!("Receipt: {receipt:?}");
         Ok(format!("{receipt:?}"))
+    }
+
+    pub async fn public_key(&self) -> Result<String, JsError> {
+        let public_key = self.signer.address();
+        let public_key_str = H160::to_string(&public_key);
+        tracing::info!("Public Key: {public_key_str}");
+        Ok(format!("{public_key_str}"))
     }
 }
