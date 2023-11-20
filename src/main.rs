@@ -170,9 +170,11 @@ fn app() -> Html {
             let did_prop = did_prop.clone();
             info!("searching");
             spawn_local(async move {
-                let registry_result =
-                    didethresolver::DidEthRegistry::new(&did_prop.rpc_url, &did_prop.private_key.clone())
-                        .await;
+                let registry_result = didethresolver::DidEthRegistry::new(
+                    &did_prop.rpc_url,
+                    &did_prop.private_key.clone(),
+                )
+                .await;
                 if let Ok(registry) = registry_result {
                     let pk_result = registry.public_key().await;
                     if let Ok(public_key) = pk_result {
