@@ -1,0 +1,7 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./profile/Cargo.toml",
+        "./dideth/Cargo.toml",
+        "./profile_doc/Cargo.toml"
+    ]
+}

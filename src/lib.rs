@@ -4,7 +4,7 @@ use ethers::{
     core::k256::ecdsa::SigningKey,
     prelude::{LocalWallet, Provider, SignerMiddleware, Wallet},
     providers::{Middleware, Ws},
-    types::{H160, U256},
+    types::H160,
 };
 use std::{str::FromStr, sync::Arc};
 use tracing_wasm::WASMLayerConfigBuilder;
@@ -46,7 +46,7 @@ fn wallet_from_key(wallet_key: &str) -> Result<WalletType, Error> {
 #[wasm_bindgen]
 impl DidEthRegistry {
     #[wasm_bindgen(constructor)]
-    pub async fn new(rpc_url: &str, wallet_key: &str) -> Result<DidEthRegistry, JsError> {
+    pub async fn new(rpc_url: String, wallet_key: String) -> Result<DidEthRegistry, JsError> {
         // this could be better, but shows how we may accept environment variables from the outside
         let registry_address = DID_ETH_REGISTRY;
 
@@ -55,12 +55,15 @@ impl DidEthRegistry {
         tracing::info!("Connected to chain: {chain_id}");
 
         // wallet/signer info
-        let wallet_result = wallet_from_key(wallet_key);
+        let wallet_result = wallet_from_key(&wallet_key);
         if let Ok(wallet) = wallet_result {
             tracing::info!("Wallet: {:?}", wallet);
-            let signer = Arc::new(SignerMiddleware::new(provider, wallet));
-            tracing::info!("Registry Contract address: {registry_address}");
-            let registry_address = H160::from_str(&registry_address).unwrap();
+            let middleware = SignerMiddleware::new_with_provider_chain(provider, wallet)
+                .await
+                .unwrap();
+            let signer = Arc::new(middleware);
+            tracing::info!("Registry Contract Connected: {registry_address}");
+            let registry_address = H160::from_str(registry_address).unwrap();
             let contract = DIDRegistry::new(registry_address, signer.clone());
 
             Ok(Self { contract, signer })
@@ -72,20 +75,13 @@ impl DidEthRegistry {
     }
 
     pub async fn owner(&self, id: String) -> Result<String, JsError> {
-        let owner = self.contract.identityOwner(id).call().await?;
+        let id_as_address = H160::from_str(&id).unwrap();
+        let owner = self.contract.identity_owner(id_as_address).call().await?;
         tracing::info!("Owner: {owner}");
         Ok(format!("{owner}"))
     }
 
-    pub async fn set_attribute(&self, attribute: String) -> Result<String, JsError> {
-        let tx = self.contract.set_attribute(
-            self.signer.address(),
-            *b"did:eth some attribute0000000000",
-            attribute.as_bytes().to_vec().into(),
-            U256::from(DATA_LIFETIME),
-        );
-        let receipt = tx.send().await?.await?;
-        tracing::info!("Receipt: {receipt:?}");
-        Ok(format!("{receipt:?}"))
+    pub fn wallet_address(&self) -> String {
+        self.signer.address().to_string()
     }
 }
