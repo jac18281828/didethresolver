@@ -46,7 +46,7 @@ fn wallet_from_key(wallet_key: &str) -> Result<WalletType, Error> {
 #[wasm_bindgen]
 impl DidEthRegistry {
     #[wasm_bindgen(constructor)]
-    pub async fn new(rpc_url: &str, wallet_key: &str) -> Result<DidEthRegistry, JsError> {
+    pub async fn new(rpc_url: String, wallet_key: String) -> Result<DidEthRegistry, JsError> {
         // this could be better, but shows how we may accept environment variables from the outside
         let registry_address = DID_ETH_REGISTRY;
 
@@ -55,12 +55,12 @@ impl DidEthRegistry {
         tracing::info!("Connected to chain: {chain_id}");
 
         // wallet/signer info
-        let wallet_result = wallet_from_key(wallet_key);
+        let wallet_result = wallet_from_key(&wallet_key);
         if let Ok(wallet) = wallet_result {
             tracing::info!("Wallet: {:?}", wallet);
             let signer = Arc::new(SignerMiddleware::new(provider, wallet));
             tracing::info!("Registry Contract address: {registry_address}");
-            let registry_address = H160::from_str(&registry_address).unwrap();
+            let registry_address = H160::from_str(registry_address).unwrap();
             let contract = DIDRegistry::new(registry_address, signer.clone());
 
             Ok(Self { contract, signer })
@@ -72,7 +72,8 @@ impl DidEthRegistry {
     }
 
     pub async fn owner(&self, id: String) -> Result<String, JsError> {
-        let owner = self.contract.identityOwner(id).call().await?;
+        let id_as_address = H160::from_str(&id).unwrap();
+        let owner = self.contract.identity_owner(id_as_address).call().await?;
         tracing::info!("Owner: {owner}");
         Ok(format!("{owner}"))
     }
