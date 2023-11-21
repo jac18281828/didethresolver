@@ -6,6 +6,7 @@ use ethers::{
     providers::{Middleware, Ws},
     types::{H160, U256},
 };
+
 use std::{str::FromStr, sync::Arc};
 use tracing_wasm::WASMLayerConfigBuilder;
 use wasm_bindgen::prelude::*;
@@ -57,10 +58,10 @@ impl DidEthRegistry {
         // wallet/signer info
         let wallet_result = wallet_from_key(wallet_key);
         if let Ok(wallet) = wallet_result {
-            tracing::info!("Wallet: {:?}", wallet);
+            tracing::info!("{:?}", wallet);
             let signer = Arc::new(SignerMiddleware::new(provider, wallet));
             tracing::info!("Registry Contract address: {registry_address}");
-            let registry_address = H160::from_str(&registry_address).unwrap();
+            let registry_address = H160::from_str(DID_ETH_REGISTRY).unwrap();
             let contract = DIDRegistry::new(registry_address, signer.clone());
 
             Ok(Self { contract, signer })
@@ -72,11 +73,23 @@ impl DidEthRegistry {
     }
 
     pub async fn owner(&self, id: &str) -> Result<String, JsError> {
-        let identity = H160::from_str(id).unwrap();
-        let owner = self.contract.identity_owner(identity).call().await?;
-        let owner_str = H160::to_string(&owner);
-        tracing::info!("Owner: {owner_str}");
-        Ok(format!("{owner_str}"))
+        //let hex_range = 2..id.len();
+        //let id = &id[hex_range];
+        tracing::info!("identity: {}", id);
+        let h160_result = H160::from_str(id);
+        match h160_result {
+            Ok(identity) => {
+                tracing::info!("H160: {:?}", identity);
+                let owner = self.contract.identity_owner(identity).call().await?;
+                let owner_str = H160::to_string(&owner);
+                tracing::info!("Owner: {}", owner_str);
+                Ok(owner_str)
+            }
+            Err(e) => {
+                tracing::error!("Error: {:?}", e);
+                Err(JsError::new("Unable to parse identity"))
+            }
+        }
     }
 
     pub async fn set_attribute(&self, attribute: String) -> Result<String, JsError> {
@@ -95,6 +108,6 @@ impl DidEthRegistry {
         let public_key = self.signer.address();
         let public_key_str = H160::to_string(&public_key);
         tracing::info!("Public Key: {public_key_str}");
-        Ok(format!("{public_key_str}"))
+        Ok(public_key_str)
     }
 }

@@ -175,33 +175,30 @@ fn app() -> Html {
                     &did_prop.private_key.clone(),
                 )
                 .await;
+                let public_key: String;
                 if let Ok(registry) = registry_result {
                     let pk_result = registry.public_key().await;
-                    if let Ok(public_key) = pk_result {
-                        info!("public key: {:?}", public_key);
-                        did_prop.set(DidDocumentProps {
-                            public_key: public_key.clone(),
-                            ..(*did_prop).clone()
-                        });
+                    if let Ok(pk) = pk_result {
+                        info!("public key: {}", pk);
+                        public_key = pk;
                     } else {
                         info!("public key error.");
                         return;
                     }
 
-                    let owner_result = registry.owner(&did_prop.public_key.clone()).await;
+                    let owner_result = registry.owner(&public_key).await;
                     if let Ok(owner) = owner_result {
                         info!("owner: {:?}", owner);
                         did_prop.set(DidDocumentProps {
                             owner: owner.clone(),
+                            public_key: public_key.clone(),
                             ..(*did_prop).clone()
                         });
                     } else {
                         info!("owner error.");
-                        return;
                     }
                 } else {
                     info!("registry error.");
-                    return;
                 }
             });
         })
