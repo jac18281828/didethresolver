@@ -16,6 +16,7 @@ type Client = SignerMiddleware<Provider<Ws>, WalletType>;
 
 pub const DID_ETH_REGISTRY: &str = "0xd1D374DDE031075157fDb64536eF5cC13Ae75000";
 pub const DATA_LIFETIME: u64 = 86400 * 365; // 1 year
+pub const MAX_SAFE_INTEGER: u64 = 9007199254740991; // javascript limit on number size
 
 // Generate rust bindings for the DIDRegistry contract
 abigen!(
@@ -73,6 +74,7 @@ impl DidEthRegistry {
 
     pub async fn owner(&self, id: String) -> Result<String, JsError> {
         let id_as_address = H160::from_str(&id).unwrap();
+        tracing::debug!("ID: {}", id_as_address);
         let owner = self.contract.identity_owner(id_as_address).call().await?;
         tracing::info!("Owner: {owner}");
         Ok(format!("{owner}"))
@@ -88,5 +90,25 @@ impl DidEthRegistry {
         let receipt = tx.send().await?.await?;
         tracing::info!("Receipt: {receipt:?}");
         Ok(format!("{receipt:?}"))
+    }
+
+    pub async fn changed(&self, owner: String) -> Result<u64, JsError> {
+        let owner_as_address = H160::from_str(&owner).unwrap();
+        tracing::debug!("Owner: {}", owner_as_address);
+        let changed = self.contract.changed(owner_as_address).call().await?;
+        tracing::info!("Changed: {changed}");
+        if changed <= U256::from(MAX_SAFE_INTEGER) {
+            tracing::info!("Changed: {changed}");
+            Ok(changed.as_u64())
+        } else {
+            tracing::warn!("Changed: {changed} exceeds MAX_SAFE_INTEGER");
+            Err(JsError::new("Unable to convert changed into JS MAX_SAFE_INTEGER"))
+        }
+    }
+
+    pub async fn get_log(&self, index: u64) -> Result<(), JsError> {
+        let log = self.contract.get_log(index.into()).call().await?;
+        tracing::info!("Log: {log:?}");
+        Ok(format!("{log:?}"))
     }
 }

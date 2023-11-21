@@ -180,6 +180,12 @@ fn app() -> Html {
                         .await;
                     if let Ok(owner) = owner_result {
                         info!("owner: {:?}", owner);
+                        let mut attribute: Vec<AttributeProps> = vec![];
+                        let mut prevChange = registry.changed(owner.clone()).await;
+                        while prevChange.is_ok() {
+
+                        }
+
                         did_prop.set(DidDocumentProps {
                             owner: owner.clone(),
                             ..(*did_prop).clone()
