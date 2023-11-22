@@ -1,5 +1,10 @@
-use log::info;
-use wasm_bindgen::JsCast;
+use ethers::{
+    providers::{Http, Middleware, Provider},
+    types::{Address, Filter, H160, H256, U64},
+};
+use log::{debug, info};
+use std::sync::Arc;
+use wasm_bindgen::{JsCast, JsError};
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 use yew::{Html, Properties};
@@ -172,20 +177,67 @@ fn app() -> Html {
             let private_key = did_prop.private_key.clone();
             info!("searching");
             spawn_local(async move {
+                let provider = Provider::<Http>::try_from(&rpc_url.clone()).unwrap();
+                let client = Arc::new(provider);
                 let registry_result =
                     didethresolver::DidEthRegistry::new(rpc_url, private_key).await;
                 if let Ok(registry) = registry_result {
-                    let public_key = registry.signer.address().to_string();
-                    let owner_result = registry
-                        .owner(public_key.clone)
-                        .await;
+                    let public_key = registry.signer_address().to_string();
+                    debug!("public key: {:?}", public_key);
+                    let owner_result = registry.owner(public_key.clone()).await;
                     if let Ok(owner) = owner_result {
                         info!("owner: {:?}", owner);
                         let mut attribute: Vec<AttributeProps> = vec![];
-                        let mut prevChange = registry.changed(owner.clone()).await;
-g                        while prevChange.is_ok() {
+                        let mut prev_change_result = registry.changed(owner.clone()).await;
+                        while let Ok(prev_change_u64) = prev_change_result {
+                            let prev_change = U64::from(prev_change_u64);
+                            if prev_change.as_u64() == 0 {
+                                break;
+                            }
+                            let token_topics = [H256::from(owner.parse::<H160>().unwrap())];
+                            let contract_addr =
+                                registry.contract_address().parse::<Address>().unwrap();
+                            let filter = Filter::new()
+                                .address(contract_addr)
+                                .event("DIDAttributeChanged(address,bytes32,bytes,uint256,uint256")
+                                .topic1(token_topics.to_vec())
+                                .topic2(token_topics.to_vec())
+                                .from_block(prev_change)
+                                .to_block(prev_change);
+                            let logs = client.get_logs(&filter).await;
+                            if let Ok(logs) = logs {
+                                for log in logs.iter() {
+                                    debug!("log: {:?}", log);
+                                    let owner_id = Address::from(log.topics[0]);
+                                    let attribute_name =
+                                        String::from_utf8(log.topics[1].as_fixed_bytes().to_vec())
+                                            .unwrap();
+                                    let attribute_value =
+                                        String::from_utf8(log.topics[2].as_bytes().to_vec())
+                                            .unwrap();
+                                    let log_prev_change =
+                                        U64::from_big_endian(log.topics[3].as_bytes());
+                                    debug!("owner: {:?}", owner_id);
+                                    attribute.push(AttributeProps {
+                                        label: attribute_name.clone(),
+                                        name: attribute_name.clone(),
+                                        value: attribute_value.clone(),
+                                    });
+                                    prev_change_result = Ok(log_prev_change.as_u64());
+                                }
+                            } else {
+                                attribute.push(AttributeProps {
+                                    label: "New Attribute".to_string(),
+                                    name: "".to_string(),
+                                    value: "".to_string(),
+                                });
+                                prev_change_result = Err(JsError::new("Unable to get logs"));
+                            }
+                        }
+
                         did_prop.set(DidDocumentProps {
                             owner: owner.clone(),
+                            attributes: attribute.clone(),
                             ..(*did_prop).clone()
                         });
                     } else {
@@ -210,7 +262,7 @@ g                        while prevChange.is_ok() {
         <div class="formInput">
         <FormInputComponent label="Public Key" value={did_prop.public_key.clone()} callback={on_public_key}/>
         <FormInputComponent label="Private Key" value={scram(did_prop.private_key.clone())} callback={on_private_key} />
-        <FormInputComponent label="rpc url" value={did_prop.rpc_url.clone()} callback={on_rpc_url} />
+        <FormInputComponent label="Rpc Url" value={did_prop.rpc_url.clone()} callback={on_rpc_url} />
         <button onclick={on_search}>{ "Search" }</button>
         </div>
         <div>

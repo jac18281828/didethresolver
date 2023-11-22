@@ -3,7 +3,7 @@ use ethers::{
     contract::abigen,
     core::k256::ecdsa::SigningKey,
     prelude::{LocalWallet, Provider, SignerMiddleware, Wallet},
-    providers::{Middleware, Ws},
+    providers::{Http, Middleware},
     types::{H160, U256},
 };
 use std::{str::FromStr, sync::Arc};
@@ -12,7 +12,7 @@ use wasm_bindgen::prelude::*;
 
 // 2. Add client type
 type WalletType = Wallet<SigningKey>;
-type Client = SignerMiddleware<Provider<Ws>, WalletType>;
+type Client = SignerMiddleware<Provider<Http>, WalletType>;
 
 pub const DID_ETH_REGISTRY: &str = "0xd1D374DDE031075157fDb64536eF5cC13Ae75000";
 pub const DATA_LIFETIME: u64 = 86400 * 365; // 1 year
@@ -35,8 +35,8 @@ pub fn set_logger() {
 
 #[wasm_bindgen]
 pub struct DidEthRegistry {
-    pub contract: DIDRegistry<Client>,
-    pub signer: Arc<Client>,
+    contract: DIDRegistry<Client>,
+    signer: Arc<Client>,
 }
 
 fn wallet_from_key(wallet_key: &str) -> Result<WalletType, Error> {
@@ -50,8 +50,7 @@ impl DidEthRegistry {
     pub async fn new(rpc_url: String, wallet_key: String) -> Result<DidEthRegistry, JsError> {
         // this could be better, but shows how we may accept environment variables from the outside
         let registry_address = DID_ETH_REGISTRY;
-
-        let provider = Provider::<Ws>::connect(rpc_url).await?;
+        let provider = Provider::<Http>::try_from(rpc_url.as_str()).unwrap();
         let chain_id = provider.get_chainid().await?;
         tracing::info!("Connected to chain: {chain_id}");
 
@@ -102,13 +101,17 @@ impl DidEthRegistry {
             Ok(changed.as_u64())
         } else {
             tracing::warn!("Changed: {changed} exceeds MAX_SAFE_INTEGER");
-            Err(JsError::new("Unable to convert changed into JS MAX_SAFE_INTEGER"))
+            Err(JsError::new(
+                "Unable to convert changed into JS MAX_SAFE_INTEGER",
+            ))
         }
     }
 
-    pub async fn get_log(&self, index: u64) -> Result<(), JsError> {
-        let log = self.contract.get_log(index.into()).call().await?;
-        tracing::info!("Log: {log:?}");
-        Ok(format!("{log:?}"))
+    pub fn signer_address(&self) -> String {
+        self.signer.address().to_string()
+    }
+
+    pub fn contract_address(&self) -> String {
+        self.contract.address().to_string()
     }
 }
