@@ -175,17 +175,15 @@ fn app() -> Html {
                 let registry_result =
                     didethresolver::DidEthRegistry::new(rpc_url, private_key).await;
                 if let Ok(registry) = registry_result {
+                    let public_key = registry.signer.address().to_string();
                     let owner_result = registry
-                        .owner("0x6CEb0bF1f28ca4165d5C0A04f61DC733987eD6ad".to_string())
+                        .owner(public_key.clone)
                         .await;
                     if let Ok(owner) = owner_result {
                         info!("owner: {:?}", owner);
                         let mut attribute: Vec<AttributeProps> = vec![];
                         let mut prevChange = registry.changed(owner.clone()).await;
-                        while prevChange.is_ok() {
-
-                        }
-
+g                        while prevChange.is_ok() {
                         did_prop.set(DidDocumentProps {
                             owner: owner.clone(),
                             ..(*did_prop).clone()

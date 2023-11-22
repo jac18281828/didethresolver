@@ -35,8 +35,8 @@ pub fn set_logger() {
 
 #[wasm_bindgen]
 pub struct DidEthRegistry {
-    contract: DIDRegistry<Client>,
-    signer: Arc<Client>,
+    pub contract: DIDRegistry<Client>,
+    pub signer: Arc<Client>,
 }
 
 fn wallet_from_key(wallet_key: &str) -> Result<WalletType, Error> {
