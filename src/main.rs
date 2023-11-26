@@ -2,7 +2,7 @@ use ethers::{
     providers::{Http, Middleware, Provider},
     types::{Address, Filter, H160, H256, U64},
 };
-use log::{debug, info};
+use log::{debug, error, info};
 use std::sync::Arc;
 use wasm_bindgen::{JsCast, JsError};
 use wasm_bindgen_futures::spawn_local;
@@ -21,6 +21,8 @@ pub struct AttributeProps {
     pub label: String,
     pub name: String,
     pub value: String,
+    pub rpc_url: String,
+    pub private_key: String,
 }
 
 #[derive(Properties, Clone, PartialEq)]
@@ -49,16 +51,45 @@ fn scram(value: String) -> String {
 
 #[function_component(SetAttributeComponent)]
 pub fn set_attribute_component(props: &AttributeProps) -> Html {
-    let AttributeProps { label, name, value } = props.clone();
+    let AttributeProps {
+        label,
+        name,
+        value,
+        rpc_url,
+        private_key,
+    } = props.clone();
 
     let set_attribute = Callback::from(move |_| {
+        let name = name.clone();
+        let value = value.clone();
+        let rpc_url = rpc_url.clone();
+        let private_key = private_key.clone();
+        spawn_local(async move {
+            let registry_result =
+                didethresolver::DidEthRegistry::new(rpc_url.clone(), private_key.clone()).await;
+            if let Ok(registry) = registry_result {
+                let attr_result = registry.set_attribute(name.clone(), value.clone()).await;
+                if let Ok(tx) = attr_result {
+                    info!("tx: {:?}", tx);
+                } else {
+                    error!("Not set: attribute error.")
+                }
+                info!("set attribute: {:?} {:?}", name, value);
+            } else {
+                error!("Not set: registry error.")
+            }
+        });
         info!("setting attribute");
     });
+
+    let name = props.name.clone();
+    let value = props.value.clone();
+    let label = label.clone();
     html! {
         <div class="setAttribute">
             <label>{ label }</label>
-            <input type="text" name={"name"} value={name} />
-            <input type="text" name={"value"} value={value} />
+            <input type="text" name={"name"} value={name.clone()} />
+            <input type="text" name={"value"} value={value.clone()} />
             <button label="Set" onclick={set_attribute} >{"Set"}</button>
         </div>
     }
@@ -108,7 +139,7 @@ fn did_document(did_doc: &DidDocumentProps) -> Html {
             <div>{format!("did: {}", did) }</div>
             <div>{format!("owner: {}", owner) }</div>
             <div>
-                { for attributes.iter().map(|attribute| html!{ <SetAttributeComponent label={attribute.label.clone()} name={attribute.name.clone()} value={attribute.value.clone()} /> }) }
+                { for attributes.iter().map(|attribute| html!{ <SetAttributeComponent label={attribute.label.clone()} name={attribute.name.clone()} value={attribute.value.clone()} rpc_url={attribute.rpc_url.clone()} private_key={attribute.private_key.clone()}/> }) }
             </div>
         </div>
     }
@@ -127,11 +158,15 @@ fn app() -> Html {
                 label: "name".to_string(),
                 name: "name".to_string(),
                 value: "value".to_string(),
+                rpc_url: "".to_string(),
+                private_key: "".to_string(),
             },
             AttributeProps {
                 label: "name".to_string(),
                 name: "name".to_string(),
                 value: "value".to_string(),
+                rpc_url: "".to_string(),
+                private_key: "".to_string(),
             },
         ],
     });
@@ -181,6 +216,8 @@ fn app() -> Html {
                 let client = Arc::new(provider);
                 let registry_result =
                     didethresolver::DidEthRegistry::new(rpc_url, private_key).await;
+                let rpc_url = did_prop.rpc_url.clone();
+                let private_key = did_prop.private_key.clone();
                 if let Ok(registry) = registry_result {
                     let public_key = registry.signer_address().to_string();
                     debug!("public key: {:?}", public_key);
@@ -222,14 +259,18 @@ fn app() -> Html {
                                         label: attribute_name.clone(),
                                         name: attribute_name.clone(),
                                         value: attribute_value.clone(),
+                                        rpc_url: rpc_url.clone(),
+                                        private_key: private_key.clone(),
                                     });
                                     prev_change_result = Ok(log_prev_change.as_u64());
                                 }
                             } else {
                                 attribute.push(AttributeProps {
                                     label: "New Attribute".to_string(),
-                                    name: "".to_string(),
-                                    value: "".to_string(),
+                                    name: "name".to_string(),
+                                    value: "value".to_string(),
+                                    rpc_url: rpc_url.clone(),
+                                    private_key: private_key.clone(),
                                 });
                                 prev_change_result = Err(JsError::new("Unable to get logs"));
                             }

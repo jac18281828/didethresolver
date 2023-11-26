@@ -5,6 +5,7 @@ use ethers::{
     prelude::{LocalWallet, Provider, SignerMiddleware, Wallet},
     providers::{Http, Middleware},
     types::{H160, U256},
+    utils::format_bytes32_string,
 };
 use std::{str::FromStr, sync::Arc};
 use tracing_wasm::WASMLayerConfigBuilder;
@@ -79,11 +80,12 @@ impl DidEthRegistry {
         Ok(format!("{owner}"))
     }
 
-    pub async fn set_attribute(&self, attribute: String) -> Result<String, JsError> {
+    pub async fn set_attribute(&self, name: String, value: String) -> Result<String, JsError> {
+        let name_b32 = format_bytes32_string(&name).unwrap();
         let tx = self.contract.set_attribute(
             self.signer.address(),
-            *b"did:eth some attribute0000000000",
-            attribute.as_bytes().to_vec().into(),
+            name_b32,
+            value.as_bytes().to_vec().into(),
             U256::from(DATA_LIFETIME),
         );
         let receipt = tx.send().await?.await?;
