@@ -66,8 +66,9 @@ impl DidEthRegistry {
     pub async fn owner(&self, id: String) -> Result<String, Error> {
         let id_as_address = H160::from_str(&id).unwrap();
         let owner = self.contract.identity_owner(id_as_address).call().await?;
-        tracing::info!("Owner: {owner}");
-        Ok(format!("{owner}"))
+        let owner_as_string = format!("{owner:#032x}");
+        tracing::info!("Owner: {owner_as_string}");
+        Ok(owner_as_string)
     }
 
     pub async fn set_attribute(&self, name: String, value: String) -> Result<String, Error> {
