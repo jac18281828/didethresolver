@@ -16,7 +16,7 @@ async fn main() {
         .unwrap();
     let owner_id = contract.owner(public_key.clone()).await.unwrap();
     println!("owner: {}", owner_id.clone());
-    let owner_attribute = contract.attribute(public_key.clone()).await.unwrap();
+    let owner_attribute = contract.attribute(owner_id.clone()).await.unwrap();
     for (key, value) in owner_attribute.iter() {
         println!("attribute - key: {}, value: {}", key, value);
     }
