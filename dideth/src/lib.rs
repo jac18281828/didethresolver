@@ -156,7 +156,8 @@ impl DidEthRegistry {
                         tracing::debug!("param: {:?}", param);
                         let name_fixed = param[0].clone().into_fixed_bytes().unwrap();
                         hasher.update(name_fixed.as_slice());
-                        let attribute_name = String::from_utf8(name_fixed).unwrap(); 
+                        let name_utf8 = String::from_utf8(name_fixed.to_vec()).unwrap();
+                        let attribute_name = self.as_pretty_string(&name_utf8).unwrap(); 
                         tracing::info!("attribute name: {attribute_name}");
                         let attribute_value = param[1].clone().into_string().unwrap();
                         hasher.update(attribute_value.as_bytes());
@@ -200,5 +201,11 @@ impl DidEthRegistry {
         ];
         let decoded = ethabi::decode(&param, &data)?;
         Ok(decoded)
+    }
+
+    fn as_pretty_string(&self, fixed: &String) -> Result<String, Error> {
+        let mut result = String::new();
+        fixed.chars().take_while(|c| !char::is_control(*c)).for_each(|c| result.push(c as char));
+        Ok(result)
     }
 }
