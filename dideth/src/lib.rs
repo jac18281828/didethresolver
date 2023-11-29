@@ -8,12 +8,16 @@ use ethers::{
     types::{Address, Filter, H160, H256, U256, U64},
     utils::format_bytes32_string,
 };
-use std::{str::FromStr, sync::Arc};
+
+use std::{str::FromStr, sync::Arc, collections::HashSet};
+
+use sha3::{Digest, Sha3_256};
+use hex;
 
 type WalletType = Wallet<SigningKey>;
 type Client = SignerMiddleware<Provider<Ws>, WalletType>;
 
-pub const REQUIRED_CONFIRMATIONS: usize = 10;
+pub const REQUIRED_CONFIRMATIONS: usize = 2;
 pub const DID_ETH_REGISTRY: &str = "0xd1D374DDE031075157fDb64536eF5cC13Ae75000";
 pub const DATA_LIFETIME: u64 = 86400 * 365; // 1 year
 
@@ -87,6 +91,22 @@ impl DidEthRegistry {
         Ok(format!("{receipt:?}"))
     }
 
+    pub async fn revoke_attribute(&self, name: String, value: String) -> Result<String, Error> {
+        let name_b32 = format_bytes32_string(&name).unwrap();
+        let tx = self.contract.revoke_attribute(
+            self.signer.address(),
+            name_b32,
+            value.as_bytes().to_vec().into(),
+        );
+        let receipt = tx
+            .send()
+            .await?
+            .confirmations(REQUIRED_CONFIRMATIONS)
+            .await?;
+        Ok(format!("{receipt:?}"))
+    }
+
+
     pub async fn attribute(&self, id: String) -> Result<Vec<(String, String)>, Error> {
         // TODO handle revocation
         let id_as_address = H160::from_str(&id).unwrap();
@@ -100,6 +120,7 @@ impl DidEthRegistry {
             block_timestamp = block.timestamp;
             tracing::info!("block_timestamp: {block_timestamp}");
         }
+        let mut revocation_set = HashSet::<String>::new();
         while let Ok(prev_change) = prev_change_result {
             let prev_change = U64::from(prev_change.as_u64());
             if prev_change == U64::zero() {
@@ -131,18 +152,27 @@ impl DidEthRegistry {
 
                     let param_result = self.decode_did_attribute_changed_param(log.data.to_vec());
                     if let Ok(param) = param_result {
+                        let mut hasher = Sha3_256::default();
                         tracing::debug!("param: {:?}", param);
                         let name_fixed = param[0].clone().into_fixed_bytes().unwrap();
-                        let attribute_name = String::from_utf8(name_fixed).unwrap();
+                        hasher.update(name_fixed.as_slice());
+                        let attribute_name = String::from_utf8(name_fixed).unwrap(); 
                         tracing::info!("attribute name: {attribute_name}");
                         let attribute_value = param[1].clone().into_string().unwrap();
+                        hasher.update(attribute_value.as_bytes());
                         tracing::info!("attribute value: {attribute_value}");
                         let validity = param[2].clone().into_uint().unwrap();
                         tracing::info!("valid until: {validity}");
                         let log_prev_change = param[3].clone().into_uint().unwrap();
                         prev_change_result = Ok(log_prev_change);
-                        if validity < block_timestamp {
+                        let digest_buffer = hasher.finalize();
+                        let digest = hex::encode(digest_buffer);
+                        if block_timestamp < validity && !revocation_set.contains(&digest.clone()){
                             result_vec.push((attribute_name.clone(), attribute_value));
+                        } else if validity == U256::zero() {
+                            tracing::info!("revoked");
+                            revocation_set.insert(digest.clone());
+                            break;
                         }
                     } else {
                         tracing::error!("Error decoding param: {:?}", param_result);
@@ -152,7 +182,7 @@ impl DidEthRegistry {
             } else {
                 tracing::error!("Error getting logs: {:?}", logs);
                 break;
-            }
+            };
         }
         Ok(result_vec)
     }

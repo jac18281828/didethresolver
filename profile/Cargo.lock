@@ -550,9 +550,11 @@ dependencies = [
  "anyhow",
  "ethabi",
  "ethers",
+ "hex",
  "log",
  "serde",
  "serde_json",
+ "sha3",
  "tracing",
  "web-sys",
 ]
