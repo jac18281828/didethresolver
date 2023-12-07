@@ -9,10 +9,9 @@ use ethers::{
     utils::format_bytes32_string,
 };
 
-use std::{str::FromStr, sync::Arc, collections::HashSet};
+use std::{collections::HashSet, str::FromStr, sync::Arc};
 
 use sha3::{Digest, Sha3_256};
-use hex;
 
 type WalletType = Wallet<SigningKey>;
 type Client = SignerMiddleware<Provider<Ws>, WalletType>;
@@ -106,7 +105,6 @@ impl DidEthRegistry {
         Ok(format!("{receipt:?}"))
     }
 
-
     pub async fn attribute(&self, id: String) -> Result<Vec<(String, String)>, Error> {
         // TODO handle revocation
         let id_as_address = H160::from_str(&id).unwrap();
@@ -140,7 +138,7 @@ impl DidEthRegistry {
             tracing::debug!("filter: {:?}", filter);
             let logs = self.signer.get_logs(&filter).await;
             if let Ok(logs) = logs {
-                if logs.len() == 0 {
+                if logs.is_empty() {
                     tracing::debug!("no logs");
                     break;
                 }
@@ -157,7 +155,7 @@ impl DidEthRegistry {
                         let name_fixed = param[0].clone().into_fixed_bytes().unwrap();
                         hasher.update(name_fixed.as_slice());
                         let name_utf8 = String::from_utf8(name_fixed.to_vec()).unwrap();
-                        let attribute_name = self.as_pretty_string(&name_utf8).unwrap(); 
+                        let attribute_name = self.as_pretty_string(&name_utf8).unwrap();
                         tracing::info!("attribute name: {attribute_name}");
                         let attribute_value = param[1].clone().into_string().unwrap();
                         hasher.update(attribute_value.as_bytes());
@@ -168,7 +166,7 @@ impl DidEthRegistry {
                         prev_change_result = Ok(log_prev_change);
                         let digest_buffer = hasher.finalize();
                         let digest = hex::encode(digest_buffer);
-                        if block_timestamp < validity && !revocation_set.contains(&digest.clone()){
+                        if block_timestamp < validity && !revocation_set.contains(&digest.clone()) {
                             result_vec.push((attribute_name.clone(), attribute_value));
                         } else if validity == U256::zero() {
                             tracing::info!("revoked");
@@ -203,9 +201,12 @@ impl DidEthRegistry {
         Ok(decoded)
     }
 
-    fn as_pretty_string(&self, fixed: &String) -> Result<String, Error> {
+    fn as_pretty_string(&self, fixed: &str) -> Result<String, Error> {
         let mut result = String::new();
-        fixed.chars().take_while(|c| !char::is_control(*c)).for_each(|c| result.push(c as char));
+        fixed
+            .chars()
+            .take_while(|c| !char::is_control(*c))
+            .for_each(|c| result.push(c));
         Ok(result)
     }
 }

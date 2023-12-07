@@ -166,8 +166,7 @@ fn app() -> Html {
             let private_key = did_prop.private_key.clone();
             info!("searching");
             spawn_local(async move {
-                let registry_result =
-                    didethresolver::DidEthRegistry::new(rpc_url, private_key).await;
+                let registry_result = profile_wasm::DidEthRegistry::new(rpc_url, private_key).await;
                 if let Ok(registry) = registry_result {
                     let owner_result = registry
                         .owner("0x6CEb0bF1f28ca4165d5C0A04f61DC733987eD6ad".to_string())
@@ -213,7 +212,7 @@ fn app() -> Html {
 
 fn main() {
     wasm_logger::init(wasm_logger::Config::default());
-    didethresolver::set_logger();
+    profile_wasm::set_logger();
     info!("Starting up");
     yew::Renderer::<App>::new().render();
 }

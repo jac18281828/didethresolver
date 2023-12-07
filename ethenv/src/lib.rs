@@ -13,11 +13,11 @@ pub fn init() {
 
 pub fn environment() -> Environment {
     let attribute = env::var("ATTRIBUTE").expect("ATTRIBUTE must be set");
-    let attribute_vec = attribute.split(",").collect::<Vec<&str>>();
+    let attribute_vec = attribute.split(',').collect::<Vec<&str>>();
     let attribute_pair = attribute_vec
         .iter()
         .map(|x| {
-            let pair = x.split("=").collect::<Vec<&str>>();
+            let pair = x.split('=').collect::<Vec<&str>>();
             (pair[0].trim().to_string(), pair[1].trim().to_string())
         })
         .collect::<Vec<(String, String)>>();
@@ -72,7 +72,7 @@ mod tests {
     #[should_panic]
     fn test_environment_missing_rpc_url() {
         std::env::remove_var("RPC_URL");
-        std::env::set_var("PUBLIC_KEY", "my_public_key");        
+        std::env::set_var("PUBLIC_KEY", "my_public_key");
         std::env::set_var("PRIVATE_KEY", "my_private_key");
         std::env::set_var("ATTRIBUTE", "key=value");
 
@@ -82,10 +82,10 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_environment_missing_private_key() {
-        std::env::set_var("PUBLIC_KEY", "my_public_key");        
+        std::env::set_var("PUBLIC_KEY", "my_public_key");
         std::env::set_var("RPC_URL", "https://example.com");
         std::env::remove_var("PRIVATE_KEY");
-        std::env::set_var("ATTRIBUTE", "key=value");        
+        std::env::set_var("ATTRIBUTE", "key=value");
 
         environment();
     }

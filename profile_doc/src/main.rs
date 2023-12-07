@@ -29,7 +29,10 @@ async fn main() -> serde_json::Result<()> {
     xmtp_service.insert("id".to_string(), did.clone());
     xmtp_service.insert("type".to_string(), "MessagingService".to_string());
     xmtp_service.insert("recipientKeys".to_string(), public_key.clone());
-    xmtp_service.insert("serviceEndpoint".to_string(), "https://xmtp.com/resolver".to_string());
+    xmtp_service.insert(
+        "serviceEndpoint".to_string(),
+        "https://xmtp.com/resolver".to_string(),
+    );
 
     owner_attribute_vec.iter().for_each(|(key, value)| {
         xmtp_service.insert(key.clone(), value.clone());
